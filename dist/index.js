@@ -9,6 +9,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 import fetch from "node-fetch";
 import express from "express";
+import proxies from "./proxies.js";
+import { HttpsProxyAgent } from "https-proxy-agent";
+import * as dotenv from "dotenv";
+dotenv.config();
+const WEBSITE_BASE_DOMAIN = "roblox.com";
+/**
+ * The query that should be passed with the API_ACCESS_TOKEN
+ */
+const SECURITY_TOKEN_NAME = "apitoken";
 /**
  * Port to listen on: localhost:PORT || localhost:8080
  */
@@ -31,90 +40,82 @@ app.use(noFavicon);
  * Captures all requests.
  */
 app.all("*", (req, res) => __awaiter(void 0, void 0, void 0, function* () {
-    fetch("https://catalog.roblox.com/v1/categories")
-        .then((r) => {
-        res.status(r.status).send(r.body);
-    })
-        .catch((err) => {
-        console.log(err);
-    });
+    const q = resolveUrl(req.subdomains, req.query);
+    if (!process.env.API_ACCESS_TOKEN || process.env.API_ACCESS_TOKEN === "") {
+        return res.status(403).send("No access token set on endpoint.");
+    }
+    if (process.env.API_ACCESS_TOKEN !== q.token) {
+        return res.status(401).send("Invalid access token provided.");
+    }
+    console.log(q.token, process.env.API_ACCESS_TOKEN);
+    const url = "https://" + q.base + req.path + q.query;
+    const r = yield tryRequest(url, 1);
+    return res.status(r.status).json(r.json);
 }));
-app.listen(SERVER_PORT);
+const MAX_REQUEST_TRIES = 5;
+function tryRequest(url, t) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const ProxyAgent = proxies.length > 0
+            ? new HttpsProxyAgent(`http://${process.env.WEBSHARE_USERNAME}:${process.env.WEBSHARE_PASSWORD}@${getRandomProxyAddress()}`)
+            : undefined;
+        return yield fetch(url, { agent: ProxyAgent })
+            .then((fetchRes) => __awaiter(this, void 0, void 0, function* () {
+            if (fetchRes.ok) {
+                try {
+                    return {
+                        status: fetchRes.status,
+                        json: yield fetchRes.json(),
+                    };
+                }
+                catch (err) {
+                    return t > MAX_REQUEST_TRIES
+                        ? {
+                            status: 400,
+                            json: { Error: err },
+                        }
+                        : yield tryRequest(url, t + 1);
+                }
+            }
+            else {
+                return t > MAX_REQUEST_TRIES
+                    ? {
+                        status: 401,
+                        json: yield fetchRes.json(),
+                    }
+                    : yield tryRequest(url, t + 1);
+            }
+        }))
+            .catch((err) => {
+            return {
+                status: 400,
+                json: { Error: err },
+            };
+        });
+    });
+}
+function resolveUrl(subdomains, query) {
+    let q = "";
+    let stoken = undefined;
+    let f = false;
+    for (const tq in query) {
+        if (tq !== SECURITY_TOKEN_NAME) {
+            q += `${f ? "&" : "?"}${tq}=${query[tq]}`;
+        }
+        else {
+            stoken = query[tq];
+        }
+        f = true;
+    }
+    return {
+        base: (subdomains.length > 0 ? subdomains.join(".") : "www") +
+            `.${WEBSITE_BASE_DOMAIN}`,
+        query: q,
+        token: stoken,
+    };
+}
+function getRandomProxyAddress() {
+    return proxies[Math.floor(Math.random() * proxies.length)];
+}
 console.log(`LISTENING ON PORT: ${SERVER_PORT}`);
-// /**
-//  * Port to listen on: localhost:PORT || localhost:8080
-//  */
-// const SERVER_PORT = 8080;
-// const HOST_DOMAIN = "roblox.com";
-// const app = express();
-// /**
-//  * Middleware to not capture request made to /favicon.ico
-//  */
-// const noFavicon = (
-//   req: express.Request,
-//   res: express.Response,
-//   next: express.NextFunction
-// ) => {
-//   if (req.originalUrl.includes("favicon.ico")) {
-//     return res.status(204).end();
-//   }
-//   next();
-// };
-// /**
-//  * Use no favicon middleware
-//  */
-// app.use(noFavicon);
-// /**
-//  * Captures all requests.
-//  */
-// app.all("*", async (req, res) => {
-//   /**
-//    * Get the subdomains of the request, if none, default to www
-//    */
-//   // console.log(req.subdomains);
-//   // res.send("Hello");
-//   // return;
-//   const subdomain: string =
-//     req.subdomains.length > 0 ? req.subdomains.join(".") : "www";
-//   const uri: string =
-//     "https://" + subdomain + "." + HOST_DOMAIN + req.originalUrl;
-//   console.log("endpoint hit : " + req.originalUrl + " || forward => " + uri);
-//   /**
-//    * Get the requests method, POST | PATCH | GET, etc... If not then default to GET (which probably should never happen)
-//    */
-//   const m = req.method || "GET";
-//   /**
-//    * Make the api request using axios
-//    */
-//   await axios
-//     .request({
-//       method: m,
-//       url: uri,
-//       headers: req.headers,
-//     })
-//     .then((result) => {
-//       /**
-//        * Send the data received
-//        */
-//       res.status(result.status).send(result.data);
-//     })
-//     .catch((err) => {
-//       if (err.response) {
-//         /**
-//          * Response error
-//          */
-//         return res.status(err.response.status).send(err.response.data);
-//       }
-//       /**
-//        * Something went wrong on the proxies end
-//        */
-//       console.warn("Internal Error.", err);
-//       res.status(400).json({ success: false, message: err.toString() });
-//     });
-// });
-// /**
-//  * Listen on PORT
-//  */
-// app.listen(SERVER_PORT);
-// console.log("LISTENING ON PORT", SERVER_PORT);
+app.listen(SERVER_PORT);
 //# sourceMappingURL=index.js.map
