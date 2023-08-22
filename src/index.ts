@@ -45,7 +45,6 @@ app.use(noFavicon);
  */
 app.all("*", async (req, res) => {
   const qurl = purl.parse(req.url, true).query;
-  console.log(qurl.useSubdomains);
   const q = resolveUrl(
     typeof qurl.useSubdomains === "string"
       ? qurl.useSubdomains.split(".")
@@ -58,7 +57,6 @@ app.all("*", async (req, res) => {
   if (process.env.API_ACCESS_TOKEN !== q.token) {
     return res.status(401).send(`Invalid access token provided. "${q.token}"`);
   }
-  console.log(q.token, process.env.API_ACCESS_TOKEN);
   const url = "https://" + q.base + req.path + q.query;
   const r = await tryRequest(url, 1);
   return res.status(r.status).json(r.json);
