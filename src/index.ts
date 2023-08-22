@@ -56,7 +56,7 @@ app.all("*", async (req, res) => {
     return res.status(403).send("No access token set on endpoint.");
   }
   if (process.env.API_ACCESS_TOKEN !== q.token) {
-    return res.status(401).send("Invalid access token provided." + q.token);
+    return res.status(401).send(`Invalid access token provided. "${q.token}"`);
   }
   console.log(q.token, process.env.API_ACCESS_TOKEN);
   const url = "https://" + q.base + req.path + q.query;
