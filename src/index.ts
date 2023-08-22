@@ -1,3 +1,4 @@
+import purl from "url";
 import fetch from "node-fetch";
 import express from "express";
 import proxies from "./proxies.js";
@@ -43,12 +44,19 @@ app.use(noFavicon);
  * Captures all requests.
  */
 app.all("*", async (req, res) => {
-  const q = resolveUrl(req.subdomains, req.query);
+  const qurl = purl.parse(req.url, true).query;
+  console.log(qurl.useSubdomains);
+  const q = resolveUrl(
+    typeof qurl.useSubdomains === "string"
+      ? qurl.useSubdomains.split(".")
+      : req.subdomains,
+    req.query
+  );
   if (!process.env.API_ACCESS_TOKEN || process.env.API_ACCESS_TOKEN === "") {
     return res.status(403).send("No access token set on endpoint.");
   }
   if (process.env.API_ACCESS_TOKEN !== q.token) {
-    return res.status(401).send("Invalid access token provided.");
+    return res.status(401).send("Invalid access token provided." + q.token);
   }
   console.log(q.token, process.env.API_ACCESS_TOKEN);
   const url = "https://" + q.base + req.path + q.query;
@@ -111,6 +119,9 @@ function resolveUrl(subdomains: string[], query: ParsedQs) {
   let stoken: string | undefined = undefined;
   let f = false;
   for (const tq in query) {
+    if (tq === "useSubdomains") {
+      continue;
+    }
     if (tq !== SECURITY_TOKEN_NAME) {
       q += `${f ? "&" : "?"}${tq}=${query[tq]}`;
     } else {
