@@ -167,10 +167,10 @@ function resolveUrl(subdomains: string[], query: ParsedQs) {
     }
     if (tq !== SECURITY_TOKEN_NAME) {
       q += `${f ? "&" : "?"}${tq}=${query[tq]}`;
+      f = true;
     } else {
       stoken = query[tq] as string;
     }
-    f = true;
   }
   const base =
     (subdomains.length > 0 ? subdomains.join(".") : "www") +
