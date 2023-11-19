@@ -4,6 +4,7 @@
     "moduleResolution": "NodeNext",
     "target": "ES6",
     "sourceMap": true,
+    "declaration": true,
     "outDir": "dist",
     "strict": true
   },

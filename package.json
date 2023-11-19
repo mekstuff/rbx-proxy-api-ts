@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "author": "mekstuff <contact@mekstuff.com> (https://github.com/mekstuff)",
   "license": "MIT",
   "files": [
@@ -10,7 +11,8 @@
   ],
   "scripts": {
     "build": "yarn tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "prepack": "yarn build"
   },
   "devDependencies": {
     "@types/express": "^4.17.17",
